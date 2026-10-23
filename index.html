@@ -37,7 +37,7 @@
 </head>
 <body>
   <h1>Eugene7 installed apps — uninstall selection</h1>
-  <p class="meta">Installed applications checklist (ARP). Grouped by publisher (oldest install date first within each). Mark apps to uninstall; <strong>Save</strong> stores <code>selected</code> flags (plus uninstallString / productCode) in the private inventory.</p>
+  <p class="meta">Installed applications checklist (ARP). Grouped by publisher (oldest install date first within each). Mark apps to uninstall — checks stay on this device until you tap <strong>Save</strong> (only then Git updates). Save stores <code>selected</code> flags plus uninstallString / productCode.</p>
   <p class="note">Registry orphan sweep comes <strong>after</strong> uninstalls — this list is apps only, not registry leftovers.</p>
 
   <div class="auth">
@@ -267,6 +267,26 @@ function filteredItems() {
   });
 }
 
+function updateCounts() {
+  const q = (document.getElementById("filter").value || "").toLowerCase();
+  const onlySel = document.getElementById("onlySelected").checked;
+  const onlyOld = document.getElementById("onlyOld").checked;
+  let shown = 0;
+  for (const i of items) {
+    if (onlySel && !i.selected) continue;
+    if (onlyOld && i.ageFlag !== "OLD5Y") continue;
+    if (q) {
+      const vendor = inferPublisher(i).toLowerCase();
+      const hay = (i.name + " " + i.notes + " " + vendor + " " + (i.publisher || "") + " " + (i.productCode || "")).toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    shown++;
+  }
+  const pubs = new Set(items.map((i) => inferPublisher(i)));
+  document.getElementById("counts").textContent =
+    `${shown} shown · ${items.filter((x) => x.selected).length} selected · ${items.length} total · ${pubs.size} publishers`;
+}
+
 function render() {
   const list = filteredItems();
   const byPub = new Map();
@@ -323,7 +343,10 @@ function render() {
     cb.addEventListener("change", () => {
       const it = items.find((x) => x.id === cb.getAttribute("data-id"));
       if (it) it.selected = cb.checked;
-      render();
+      // Local only — do not rebuild the whole list or call Git until Save
+      const tr = cb.closest("tr");
+      if (tr) tr.classList.toggle("selected", !!cb.checked);
+      updateCounts();
     });
   });
   root.querySelectorAll("button[data-pub-select]").forEach((btn) => {
